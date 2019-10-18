@@ -482,6 +482,7 @@ export class SwiftGenerator<Context> extends CodeGenerator<
    * @param param0 The struct name, description, adoptedProtocols, and namespace to use to generate the struct
    * @param outputIndividualFiles If this operation is being output as individual files, to help prevent
    *                              redundant usages of the `public` modifier in enum extensions.
+   * @param isAccessModifierRedundant If true, access modifier will be omitted from the struct.
    * @param closure The closure to execute which generates the body of the struct.
    */
   structDeclaration(
@@ -492,15 +493,17 @@ export class SwiftGenerator<Context> extends CodeGenerator<
       namespace = undefined
     }: Struct,
     outputIndividualFiles: boolean,
+    isAccessModifierRedundant: boolean,
     closure: Function
   ) {
     this.printNewlineIfNeeded();
     this.comment(description);
 
     const isRedundant =
-      adoptedProtocols.includes("GraphQLFragment") &&
-      !!namespace &&
-      outputIndividualFiles;
+      isAccessModifierRedundant ||
+      (adoptedProtocols.includes("GraphQLFragment") &&
+        !!namespace &&
+        outputIndividualFiles);
     const modifier = new SwiftSource(isRedundant ? "" : "public ");
 
     this.printOnNewline(swift`${modifier}struct ${structName}`);

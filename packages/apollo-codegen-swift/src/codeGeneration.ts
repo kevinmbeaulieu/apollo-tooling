@@ -68,13 +68,35 @@ export function generateSource(
   const generator = new SwiftAPIGenerator(context);
 
   if (outputIndividualFiles) {
-    generator.withinFile(`Types.graphql.swift`, () => {
-      generator.fileHeader();
+    if (context.options.namespace) {
+      generator.withinFile(`${context.options.namespace}.graphql.swift`, () => {
+        generator.fileHeader(false);
 
-      generator.namespaceDeclaration(context.options.namespace, () => {
-        context.typesUsed.forEach(type => {
-          generator.typeDeclarationForGraphQLType(type, true);
-        });
+        generator.namespaceDeclaration(context.options.namespace, () => {});
+      });
+    }
+
+    context.typesUsed.forEach(type => {
+      const typeName = generator.helpers.typeNameFromGraphQLType(
+        type,
+        undefined,
+        false
+      );
+      generator.withinFile(`${typeName}.graphql.swift`, () => {
+        generator.fileHeader();
+
+        generator.namespaceExtensionDeclaration(
+          context.options.namespace,
+          () => {
+            const isAccessModifierRedundant =
+              context.options.namespace !== null;
+            generator.typeDeclarationForGraphQLType(
+              type,
+              true,
+              isAccessModifierRedundant
+            );
+          }
+        );
       });
     });
 
@@ -158,13 +180,15 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
     this.helpers = new Helpers(context.options);
   }
 
-  fileHeader() {
+  fileHeader(includeImports: boolean = true) {
     this.printOnNewline(
       SwiftSource.raw`//  This file was automatically generated and should not be edited.`
     );
-    this.printNewline();
-    this.printOnNewline(swift`import Apollo`);
-    this.printOnNewline(swift`import Foundation`);
+    if (includeImports) {
+      this.printNewline();
+      this.printOnNewline(swift`import Apollo`);
+      this.printOnNewline(swift`import Foundation`);
+    }
   }
 
   /**
@@ -445,6 +469,7 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
     this.structDeclaration(
       { structName, adoptedProtocols, namespace },
       outputIndividualFiles,
+      false,
       () => {
         if (before) {
           before();
@@ -529,6 +554,7 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
               structName: "Fragments"
             },
             outputIndividualFiles,
+            false,
             () => {
               this.printOnNewline(
                 swift`public private(set) var resultMap: ResultMap`
@@ -1057,19 +1083,28 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
    * @param type The graphQLType to generate a type declaration for.
    * @param outputIndividualFiles If this operation is being output as individual files, to help prevent
    *                              redundant usages of the `public` modifier in enum extensions.
+   * @param isAccessModifierRedundant If provided, access modifier will be omitted from the type.
    */
   typeDeclarationForGraphQLType(
     type: GraphQLType,
-    outputIndividualFiles: boolean
+    outputIndividualFiles: boolean,
+    isAccessModifierRedundant: boolean = false
   ) {
     if (isEnumType(type)) {
-      this.enumerationDeclaration(type);
+      this.enumerationDeclaration(type, isAccessModifierRedundant);
     } else if (isInputObjectType(type)) {
-      this.structDeclarationForInputObjectType(type, outputIndividualFiles);
+      this.structDeclarationForInputObjectType(
+        type,
+        outputIndividualFiles,
+        isAccessModifierRedundant
+      );
     }
   }
 
-  enumerationDeclaration(type: GraphQLEnumType) {
+  enumerationDeclaration(
+    type: GraphQLEnumType,
+    isAccessModifierRedundant: boolean
+  ) {
     const { name, description } = type;
     const values = type.getValues().filter(value => {
       return (
@@ -1079,8 +1114,10 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
 
     this.printNewlineIfNeeded();
     this.comment(description || undefined);
+    // const accessModifier = isAccessModifierRedundant ? "" : "public ";
+    const accessModifier = isAccessModifierRedundant ? swift`` : swift`public `;
     this.printOnNewline(
-      swift`public enum ${name}: RawRepresentable, Equatable, Hashable, CaseIterable, Apollo.JSONDecodable, Apollo.JSONEncodable`
+      swift`${accessModifier}enum ${name}: RawRepresentable, Equatable, Hashable, CaseIterable, Apollo.JSONDecodable, Apollo.JSONEncodable`
     );
     this.withinBlock(() => {
       this.printOnNewline(swift`public typealias RawValue = String`);
@@ -1170,10 +1207,12 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
    * @param type The input type to generate code for
    * @param outputIndividualFiles If this operation is being output as individual files, to help prevent
    *                              redundant usages of the `public` modifier in enum extensions.
+   * @param isAccessModifierRedundant If true, access modifier will be omitted from the struct.
    */
   structDeclarationForInputObjectType(
     type: GraphQLInputObjectType,
-    outputIndividualFiles: boolean
+    outputIndividualFiles: boolean,
+    isAccessModifierRedundant: boolean
   ) {
     const { name: structName, description } = type;
     const adoptedProtocols = ["GraphQLMapConvertible"];
@@ -1193,6 +1232,7 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
     this.structDeclaration(
       { structName, description: description || undefined, adoptedProtocols },
       outputIndividualFiles,
+      isAccessModifierRedundant,
       () => {
         this.printOnNewline(swift`public var graphQLMap: GraphQLMap`);
 

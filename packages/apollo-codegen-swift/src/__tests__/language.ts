@@ -85,7 +85,7 @@ describe("Swift code generation: Basic language constructs", () => {
   });
 
   it(`should generate a struct declaration`, () => {
-    generator.structDeclaration({ structName: "Hero" }, false, () => {
+    generator.structDeclaration({ structName: "Hero" }, false, false, () => {
       generator.propertyDeclaration({
         propertyName: "name",
         typeName: "String"
@@ -104,6 +104,26 @@ describe("Swift code generation: Basic language constructs", () => {
     `);
   });
 
+  it(`should generate a struct declaration with no explicit access modifier`, () => {
+    generator.structDeclaration({ structName: "Hero" }, false, true, () => {
+      generator.propertyDeclaration({
+        propertyName: "name",
+        typeName: "String"
+      });
+      generator.propertyDeclaration({
+        propertyName: "age",
+        typeName: "Int"
+      });
+    });
+
+    expect(generator.output).toBe(stripIndent`
+      struct Hero {
+        public var name: String
+        public var age: Int
+      }
+    `);
+  });
+
   it(`should generate a namespaced fragment`, () => {
     generator.structDeclaration(
       {
@@ -111,6 +131,7 @@ describe("Swift code generation: Basic language constructs", () => {
         adoptedProtocols: ["GraphQLFragment"],
         namespace: "StarWars"
       },
+      false,
       false,
       () => {
         generator.propertyDeclaration({
@@ -140,6 +161,7 @@ describe("Swift code generation: Basic language constructs", () => {
         namespace: "StarWars"
       },
       true,
+      false,
       () => {
         generator.propertyDeclaration({
           propertyName: "name",
@@ -161,7 +183,7 @@ describe("Swift code generation: Basic language constructs", () => {
   });
 
   it(`should generate an escaped struct declaration`, () => {
-    generator.structDeclaration({ structName: "Type" }, false, () => {
+    generator.structDeclaration({ structName: "Type" }, false, false, () => {
       generator.propertyDeclaration({
         propertyName: "name",
         typeName: "String"
@@ -186,7 +208,7 @@ describe("Swift code generation: Basic language constructs", () => {
   });
 
   it(`should generate nested struct declarations`, () => {
-    generator.structDeclaration({ structName: "Hero" }, false, () => {
+    generator.structDeclaration({ structName: "Hero" }, false, false, () => {
       generator.propertyDeclaration({
         propertyName: "name",
         typeName: "String"
@@ -196,12 +218,17 @@ describe("Swift code generation: Basic language constructs", () => {
         typeName: "[Friend]"
       });
 
-      generator.structDeclaration({ structName: "Friend" }, false, () => {
-        generator.propertyDeclaration({
-          propertyName: "name",
-          typeName: "String"
-        });
-      });
+      generator.structDeclaration(
+        { structName: "Friend" },
+        false,
+        false,
+        () => {
+          generator.propertyDeclaration({
+            propertyName: "name",
+            typeName: "String"
+          });
+        }
+      );
     });
 
     expect(generator.output).toBe(stripIndent`
@@ -247,6 +274,7 @@ describe("Swift code generation: Basic language constructs", () => {
   it(`should handle multi-line descriptions`, () => {
     generator.structDeclaration(
       { structName: "Hero", description: "A hero" },
+      false,
       false,
       () => {
         generator.propertyDeclaration({
