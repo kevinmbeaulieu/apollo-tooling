@@ -204,6 +204,40 @@ describe("Swift code generation", () => {
     });
   });
 
+  describe("#indentation", () => {
+    it(`should generate a class declaration with an indent width of 4 spaces`, () => {
+      let options = {
+        generateOperationIds: true,
+        mergeInFieldsFromFragmentSpreads: true,
+        indentWidth: 4
+      };
+      generator = new SwiftAPIGenerator({
+        fragments: {},
+        operations: {},
+        schema: schema,
+        typesUsed: [],
+        options: options
+      });
+      const { operations } = compile(
+        `
+        query Hero {
+          hero {
+            ...HeroDetails
+          }
+        }
+        fragment HeroDetails on Character {
+          name
+        }
+        `,
+        options
+      );
+
+      generator.classDeclarationForOperation(operations["Hero"], false, false);
+
+      expect(generator.output).toMatchSnapshot();
+    });
+  });
+
   describe("#initializerDeclarationForProperties()", () => {
     it(`should generate initializer for a property`, () => {
       generator.initializerDeclarationForProperties([
