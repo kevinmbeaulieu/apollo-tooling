@@ -10,7 +10,8 @@ import {
   isNonNullType,
   isListType,
   isEnumType,
-  isInputObjectType
+  isInputObjectType,
+  GraphQLInt
 } from "graphql";
 
 import {
@@ -842,12 +843,34 @@ export class SwiftAPIGenerator extends SwiftGenerator<CompilerContext> {
         this.printOnNewline(swift`get`);
         this.withinBlock(() => {
           if (isOptional) {
+            if (type == GraphQLInt) {
+              this.printOnNewline(
+                swift`assert((resultMap[${SwiftSource.string(
+                  responseKey
+                )}] as? ${typeName.slice(
+                  0,
+                  -1
+                )})?.leadingZeroBitCount > 32, "GraphQL only supports 32-bit integer values")`
+              );
+            }
+
             this.printOnNewline(
               swift`return resultMap[${SwiftSource.string(
                 responseKey
               )}] as? ${typeName.slice(0, -1)}`
             );
           } else {
+            if (type == GraphQLInt) {
+              this.printOnNewline(
+                swift`assert((resultMap[${SwiftSource.string(
+                  responseKey
+                )}]! as! ${typeName.slice(
+                  0,
+                  -1
+                )}).leadingZeroBitCount > 32, "GraphQL only supports 32-bit integer values")`
+              );
+            }
+
             this.printOnNewline(
               swift`return resultMap[${SwiftSource.string(
                 responseKey
